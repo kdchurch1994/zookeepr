@@ -1,0 +1,184 @@
+Create an Express.js Server
+*   What is Express.js?
+        Think back to your time spend working with server-side APIs. Whenever you needed to retrieve data from an API, you would make a request to an endpoint. 
+        After a short period of time, the server would return the data to the client in the form of a response. Express.js follows a similar pattern. 
+
+*   What's a server?
+        To be considered a server, a machine or program needs to provide some functionatlity to a client. 
+        In our case, we want that functionality to be accepting a request and sending back a response. 
+        Node.js has built-in libraries that support this functionality, but writing Node.js servers requries significantly more code than using Express.js to do the job. 
+
+*   The first thing we'll do is set up the server so that it's listening for incoming requests. Start by installing Express.js by running the following commands:
+        npm init -y //Starts the npm intitialization process and the -y flag is being used to skip the package questionaire and leave defaults. 
+        npm i express //You can use npm i as a shortcut for npm install
+
+*   Setting up the server with the server.js file
+        Just like any other npm package, we will require Express.js at the top of the file. Add the following code to the top of the file:
+            const express = require('express');
+
+        Setting up the server only takes two steps: we need to instantiate the server, then tell it to listen for requres. To instantiate the server, add the following code to server.js:
+            const app = express;
+                This is all it takes to start Express.js. We assign express() to the app variable so that we can later chain on methods to the Express.js server. 
+                Now we just need to use one method to make our server listen. 
+                We're going to chain the listen() method onto our server to do it. To do that, add the following code to the end of server.js:
+
+                    app.listen(3001, () => {
+                        console.log('API server now on port 3001!');
+                    });
+
+                To start the server, use the following command:
+                    npm start
+
+*   What's a port?
+        To understand ports, let's make an analogy.
+            Imagine that a website is like a college campus. A website has an address, referred to as the host. A college campus also has an address.
+                The host tells the client where to go, but it doesn't specify exactly where to go. 
+                Likewise, if you have the address of the college campus, you don't know exactly which building or classrom to go to.
+                The port is lika a building/classroom; it gives the exact destination on the host. 
+
+        If you're browsing the internet, chances are you're visiting the address on one of two ports: 80 or 443.
+            80 is typically used for sites that begin with http://, and 443 is used for sites that begin with https://.
+            This raises the question: Why are we using 3001 instead of 80 or 443?
+                The truth is, there's nothing wrong with running your server on 80 or 443. 
+                However, ports with numbers 1024 and under are considered special by the operating system, and often require special permissions (like running the process as an admin.)
+                    To avoid these permission restrictions, we chose to run on a poart thit is less restircted, which in this case is 3001, but there are plentys of others available.
+                        Port numbers can range from 1024 to 49151!
+                            We chose a number around 3000 because it is common practice and farily easy to remember. 
+
+
+Handle Requests for Animals (data)
+*   Let's start by creating a route that the front-end can request data from. Starting by requireing the data by adding the following code at the top of server.js:
+        const { animals } = require('./data/animals)
+    To add a route, type the following code just before app.listen():
+        app.get('/api/animals', (req, res) => {
+            res.send('Hello!');
+        });
+    There are two important takeways from this code:
+        1.The first is that the get() method requires two arguments. The first is a string that describes the route the client will have to fetch from.
+            The second callback function that will execute every time that route is access with a GET request. 
+        2. The second takeaway is that we are using the send() method from the res parameter (short for response) to send the string Hello! to our client. 
+    The send() method is great if we want to send short messages, but what if we want to send lots of JSON, like we've seen from APIs? To send JSON, just change send to json.
+        We do this to change the headers (i.e., additional metatdata that's sent with every request/response) so that the client know's it's receiving JSON.
+
+    Now we will update the code to use res.json() by changing the second lin in the following code block from res.send('Hello!'); to res.json(animals);:
+        app.get('/api/animals', (req, res) => {
+            res.json(animals);
+        });
+            By running the server, the animals.json file would appear at the url http://localhost:3001/api/animals
+                There is not a ton of data here, but what if we need info about 5 gorillas and they had 300 animals?
+                    Do you remember when you worked with serverside APIs that you were able to specify parameters with your query by using ? or :<parameter>? 
+                        Now we are going to create that same functionality with our own server. 
+                            To create this query, we'll add another function called filterByQuery().
+                                This is going to help us handle differnt kinds of queries. 
+                                We will start by extracting the data from after the question mark.
+                                    This time we will use the req paramer, which is short for "request" 
+                                    Whatever string of query parameters you use on the URL will become JSON, so ?a=111&b=222&c=333 will become:
+                                        {
+                                            a: "111",
+                                            b: "222",
+                                            c: "333"
+                                        }
+                                    Importatnly, if you repeat the same query name with different values, it will become an array in the JSON. So, ?a=111&b=222&b=333 would become:
+                                        {
+                                            a: "111",
+                                            b: ["222", "333"]
+                                        }
+                                    With that in mind, instead of handling the filter functionatlity inside the .get() callback, we're going to break it out into its own function. 
+                                        This will keep our code maintainable and clean. Above the.get(), create a new function called filterByQuery() by adding the following code:
+                                            function filterByQuery(query, animalsArray) {
+                                                let filteredResults = animalsArray;
+                                                if (query.diet) {
+                                                    filteredResults = filteredResults.filter(animal => animal.diet === query.diet);
+                                                }
+                                                if (query.species) {
+                                                    filteredResults = filteredResults.filter(animal => animal.species === query.species);
+                                                }
+                                                if (query.name) {
+                                                    filteredResults = filteredResults.filter(animal => animal.name === query.name);
+                                                }
+                                                return filteredResults;
+                                            }
+                                        This function will take in re.query as an argument and filter through the animals accordingly returning the new filtered array. 
+                                        Go ahead and call the filterByQuery() in the app.get() callback as shown in the following code:
+                                            app.get('/api/animals', (req, res) => {
+                                                let results = animals;
+                                                if (req.query) {
+                                                    results = filterByQuery(req.query, results);
+                                                }
+                                                res.json(resulsts);
+                                            });
+                                        This code works well querying properties that are strings, but what if we wanted to filter out animals based on their personality traits?
+                                            This is different because the personality traits are within an array. To make things more complex, users migh want to filter animals by multipe personality traits at the samte time.
+                                                This means we'll have to handle query.personalityTraits differently from the way we handle the other queries. 
+                                            How does this process differ from querying for one verus mutliple personality traits?
+                                                Adding &personalityTraits=quirky&personalityTraits=rash to the end of the URL in the browser will cause req.query.personalityTraits to become the following array: ['quirky', 'rash'].
+                                                However, if we were to query by only one personality trait, like personalityTraits=rash, then req.query.personalityTraits would be the string rash. 
+                                                To combat this, modify the filterByQuery() function to handle both cases by adding the following code:
+                                                    function filterByQuery(query, animalsArray) {
+                                                    let personalityTraitsArray = [];
+                                                    // Note that we save the animalsArray as filteredResults here:
+                                                    let filteredResults = animalsArray;
+                                                    if (query.personalityTraits) {
+                                                        // Save personalityTraits as a dedicated array.
+                                                        // If personalityTraits is a string, place it into a new array and save.
+                                                        if (typeof query.personalityTraits === 'string') {
+                                                        personalityTraitsArray = [query.personalityTraits];
+                                                        } else {
+                                                        personalityTraitsArray = query.personalityTraits;
+                                                        }
+                                                        // Loop through each trait in the personalityTraits array:
+                                                        personalityTraitsArray.forEach(trait => {
+                                                        // Check the trait against each animal in the filteredResults array.
+                                                        // Remember, it is initially a copy of the animalsArray,
+                                                        // but here we're updating it for each trait in the .forEach() loop.
+                                                        // For each trait being targeted by the filter, the filteredResults
+                                                        // array will then contain only the entries that contain the trait,
+                                                        // so at the end we'll have an array of animals that have every one 
+                                                        // of the traits when the .forEach() loop is finished.
+                                                        filteredResults = filteredResults.filter(
+                                                            animal => animal.personalityTraits.indexOf(trait) !== -1
+                                                        );
+                                                        });
+                                                    }
+                                                    if (query.diet) {
+                                                        filteredResults = filteredResults.filter(animal => animal.diet === query.diet);
+                                                    }
+                                                    if (query.species) {
+                                                        filteredResults = filteredResults.filter(animal => animal.species === query.species);
+                                                    }
+                                                    if (query.name) {
+                                                        filteredResults = filteredResults.filter(animal => animal.name === query.name);
+                                                    }
+                                                    // return the filtered results:
+                                                    return filteredResults;
+                                                    }
+                                                See the comments in the code. We're revising the filterReulsts array for each trait that we loop through with .forEach().
+                                                    Each iteration revises filteredResults to that it only contains animals that possess the indicated trait. 
+                                                    At the end of the .forEach() loop, we'll have a filteredResults array that only contains animals that have all the traits we're targeting. 
+                                                        Also, while comments may extent the length of your code, they increase its maintainability, not only by you, but by anyone who has to maintain your code going forward. 
+                                                        Don't be afraid to add comments to clarify a routine that was tricky to write. 
+                                                Now, the filterByQuery() method ensures that query.personalityTraits is always an array before the .forEach() method executes.        
+
+    
+Deploy to Heroku
+*   We're ready to deploy our application, but we have one problem. GitHub Pages only deploys static sites made up of HTML pages, but we we need to deploy a server.js file that is going to run a Node.js process.
+        Therfore, we'll need to use Heroku.
+    To get started, created a Heroku account at Heroku.com. Then download the Heroku CLI. The CLI will help us easily get our app deployed, and we won't even need to leave the command line!
+    To create a new Heroku application, enter the following command into the terminal:
+        heroku create
+            You can specify the name of your application by adding <app-name> after heroku create, but it must be a unique name that isn't used anywhere else on Heroku. 
+    Just as with GitHub Pages, the deployment steps rely on a Git branch. Reather than pushing to origin main though, we will push to heroku main, as this is a new location for our repository's code to go.
+        When we say origin or heroku in our git push commands, they are what's known as the "remote".
+        Unfortunately, we cannot simply say git push heroku main when we aren't current in the local main branch.
+            Heroku doesn't allow for cross-branch actions the same way GitHub allows. 
+                This is a good problem to have, though, as typically we would never want to deploy code to production from a working feature branch. 
+                Run the following commands from the command line:
+                    git add .
+                    git commit -m "Add Heroku"
+                    git push heroku main (only if you are currently in main branch)
+                        However if you in a different branch it would be:
+                            git push heroku <current_git_hub_branch>:main
+
+
+        
+
