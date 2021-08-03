@@ -178,6 +178,59 @@ Deploy to Heroku
                     git push heroku main (only if you are currently in main branch)
                         However if you in a different branch it would be:
                             git push heroku <current_git_hub_branch>:main
+                Now open the newly created app using the output from the command line in the browser. There will be two items that look like lins, the one we want to open in the browser is the that one that says <your-app-nam>herokuapp.com and not the one that ends with .git
+                You can also open the application by entering heroku open from the command line!
+                You should receive an Application error! 
+                    This happened because we used the hardcoded port of 3001. Heroku apps get server using port 80. We could hardcode our app to use 80, but instead we are going to tell our app to use an environment variable. 
+                    When Heroku runs our app, it sets an enviroment variable called process.env.PORT. We're going to tell our app to use that port, if it has been set, and if not, default to port 80.
+                        Application served over Heroku as well as most hosts must run on port 80. If the host uses HTTPS, then the port would be set to 443.
+                        In server.js, add the following line of code before const app:
+                            const PORT = process.env.PORT || 3001;
+                                Now go down to where we have our application listening, and replace the hardcoded value with the PORT variable like so:
+                                   app.listen(PORT, () => {
+                                        console.log(`API server now on port ${PORT}!`);
+                                    });
+
+Handle Requests for a Specific Animal (Piece of data)
+*   Sometimes we only want one specific animal, rather than an array of all the animals that match a query.
+        The req object gives us access to another property for this case, req.params.
+        Unlike the query object, the param object needs to be defined in the route path, with <route>/:<parameterName>
+        For our sake, create a new GET route for anaimals, after the first Get all route, this time adding :id to the end of the route, as shown in the following code:
+            app.get('/api/animals/:id', (req, res) => {
+                const result = findById(req.params.id, animals);
+                    res.json(result);
+            });
+        Now that we have multiple routes, we have to pay extra attention to the order of the routes. 
+            A param route must come after the other GET route. 
+            You may have already noticed that ther's a function called findById() in the callback that looks just like filterByQuery(), except this time we're passing req.params.id.
+            Why don't we just use the filterByQuery() function from earlier?
+                Well, we could, but we know for certian that this route should only return a single animal, because the id is unique. 
+                We also know that there won't be any query on a single animal, so there's no need for all of the other code. 
+            Above the two routes, add a function called findById() that takes in the id and array of animals and returns a single animal object, as shown in the following code:
+                function findById(id, animalsArray) {
+                    const result = animalsArray.filter(animal => animal.id === id)[0];
+                    return result;
+                }
+            Restart your local server with npm start. Then navigate to http://localhost:3001/api/animals/1
+                This time, the JSON response is a single object instead of an array. 
+                Now let's return to the id route and update it so that if no record exists for the animal being searched for, the client receives a 404 error.
+                    Remember that the 404 status code is meant to communicate to the client that the requested resource could not be found.
+                    To send this error, we can just send the 404 error code with res.send() like this:
+                        app.get('/api/animals/:id', (req, res) => {
+                            const result = findById(req.params.id, animals);
+                            if (result) {
+                                res.json(result);
+                            } else {
+                                res.send(404);
+                            }
+                        });
+                    We chose to return an error here instead of an empty object or undefined in order to make it clear to the client that the resource they asked for, in this case a specific animal, does not exist. 
+                    Note that this is a fairly common practice, but some developer teams might choose other errors to send back to the client, or no error at all.
+                    Restart the localhost, and then test the site for 404 functionality by supplying nonsensical IDs, and also check to ensure that actual IDs produce the expected output.
+                What is the appropriate use case for req.param vs. req.query?
+                    req.query is multifaceted, often combining multiple parameters, whereas req.param is specific to a single property, often intended to retrieve a single record.
+
+
 
 
         
