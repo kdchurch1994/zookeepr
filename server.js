@@ -1,9 +1,16 @@
+const fs = require('fs'); //imports the use of the fs library, which is used to write to files
+const path = require('path'); //Imports the path module built into the Node.js API that provides utilities for working with file and directory paths.
 const { animals } = require('./data/animals.json'); // importing this file to be called by the server
 const express = require('express'); //Allows us to use the Express NPM package
 
 const PORT = process.env.PORT || 3001; // This line of code sets the PORT variable to either process.env.PORT, which is telling the app to use that port (environment variable set by Heroku) if it is set up, and if not, default to port 80. If ran locally, it will use port 3001
 const app = express(); //Instantiates (starts) the Express.js server
 // Line 3 Note: We assign express() to the app variable so that we can later chain on methods to the Express.js server.
+
+// parse incoming string or array data
+app.use(express.urlencoded({ extended: true }));
+// parse incoming JSON data
+app.use(express.json());
 
 function filterByQuery(query, animalsArray) { //This function will take in req.query as an argument and filter through the animals accordingly, returning the new filtered array. 
     let personalityTraitsArray = [];
@@ -41,6 +48,32 @@ function findById(id, animalsArray) { //Finds the id of a particular animal in t
     return result;
 }
 
+function createNewAnimal(body, animalsArray) { //This function accepts the POST route's req.body value and the array we want to add the data to.
+    const animal = body;
+    animalsArray.push(animal); //saves the new data in the local server.js copy of our animal data
+    fs.writeFileSync( 
+        path.join(__dirname, './data/animals.json'), //Writes the new animal data to our animals.json file in the data subdirectory by using the method path.join() to join the value of __dirname, which represents the directory of the file we execute the code in, with the path to the animals.json file
+        JSON.stringify({ animals: animalsArray }, null, 2) //Converts the JavaScript array data to JSON. The other two arguments used in the method, null and 2, are means of keeping the data formatted
+    );                                                     //The null argument means we don't want to edit any of our existing data; if we did, we could pass something in there. The 2 indicates we want to create white space between our values to make it more readable. 
+    return animal;
+}
+
+function validateAnimal(animal) {
+    if (!animal.name || typeof animal.name !== 'string') { //if animal.name is not a string, the function will return false
+        return false;
+    }
+    if (!animal.species || typeof animal.species !== 'string') { //if animal.species is not a string, the function will return false
+        return false;
+    }
+    if (!animal.diet || typeof animal.diet !== 'string') { //if animal.diet is not a string, the function will return false
+        return false;
+    }
+    if (!animal.personalityTraits || !Array.isArray(animal.personalityTraits)) { //if animal.personalityTraits is not an array, the function will return false
+        return false;
+    }
+    return true; //If all the validators do not return false, return true
+}
+
 app.get('/api/animals', (req, res) => { //A get route to pull data from the animals api and respond with the whole animals.json file or allow you to search using the ? parameter in the url
     let results = animals;              //That particular datatype must be listed in the json file or it will not return any working results. 
     if (req.query) {                     
@@ -55,6 +88,20 @@ app.get('/api/animals/:id', (req, res) => { //Gets and returns an animal to the 
         res.json(result); //Returns a result if the animal's id exists. 
     } else {
         res.send(404); //Responds with a 404 status error if the Id does not exist. Remember that the 404 status code is meant to communicate to the client that the requested resource could not be found. 
+    }
+});
+
+app.post('/api/animals', (req, res) => {
+    // set id based on what the next index of the array will be
+    req.body.id = animals.length.toString(); 
+
+    // if any data in req.body is incorrect, send 400 error back
+    if (!validateAnimal(req.body)) {
+        res.status(400).send('The animal is not properly formatted.');
+    }   else {
+        // add animal to json file and animals array in this function
+        const animal = createNewAnimal(req.body, animals);
+        res.json(animal);
     }
 });
 
