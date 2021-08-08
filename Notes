@@ -446,3 +446,198 @@ Add Function to Handle Animal Creation
         Validating our data is sometimes a tedious process, but it's very important to maintain our data's integrity. 
             As we will see in future work, there are even libraries that can help us do just that!
 
+Set up the New Front End (11.3.3)
+*   We use the name public to hold our front-end code because that was the standard naming convention for it when servers were primarily made with Apache web server software.
+        You can really call it whatever you want, but typically the terms public or client are the names developers use. 
+
+*   Break Down the Front-End Code (Make sure you know what the front end is doing and what we are trying to acheive with the front end)
+        The index.html file will serve as the homepage, with two forms on it to add either a new animal or a zookeeper. 
+        The animal.html file is going to allow users to see all of the animal data from our server.
+            On load, this page will perform a GET request to receive all animal information from our server.
+                There's also a form on the lefthand side that will allow us to get and display a filerted list of animals based on specific data.
+        The zookeepers.html page will essentially be the same as animals.html in that we'll eventually receive all information about zookeepers to display, but we don't have that information yet.
+        All of these files share a single systel sheet that's already been created for us, and each file has its own JavaScript file.
+            These JS files have all of the main functionality handled when it comes to capturing form data and printing it to the page. 
+            All that's left is to make the API calls using fetch() functionality!
+        There's one more thing before we move on and create the routes to serve this front end. 
+            Up until now when we've worked with front-end code, we could simply right-click in the file and select Open In Browser. 
+            Unfortunately, we can't do that if we want this page to communicate with our API. So while it may feel natural to open the page that way, we need to make sure that every time we test something on the front end that it is served from http://localhost:3001, or https://<your-heroku-app-name>.herokuapp.com when it's in production.
+
+Create Routes to Server index.html
+*   Let's add a route to server.js. The following code can go under the existing routes but above app.listen(), as that should always be last:
+        app.get('/', (req, res) => {
+            res.sendFile(path.join(__dirname, './public/index.html'));
+        });
+    So far we've only used routes that have actual names like /api/animals, so where do you think the / route points us to?
+        It brings us to the root route of the server. 
+            This is the oute used to create a homepage for a server. 
+        Unlike most GET and POST routes that deal with creating or returning JSON data, this GET route has just one job to do, and that is to respond with an HTML page to display in the browser. 
+            So instead of using res.json(), we're using res.sendFile(), and all we have to do is tell them where to find the file we want our server to read and send back to the client. 
+            Notice in the res.sendFile() that we're using the path module again to ensure that we're finding the correct location for the HTML code we want to display in the browser. 
+                This way, we know it will work in any server environment. 
+            Before Express.js and its res.sendFile() method, the process for serving an HTML page was a little more manual. 
+                It involved using the fs module to locate and read the file's content, and then send it back to the client using the simpler res.send() method.
+                When we use res.sendFile(), all of that functionality is built into the method. 
+                All we need to do is tell them where exactly our file is located and the method will do the rest. 
+        When going to http://localhost:3001 in the browser, the webpage will apeear, but you will notice that the URL bar doesn't mention index.html anywhere.
+            This is because we made a request to the server's route / and it responded with the HTML. 
+                In fact, we could've called the index.html file anything we wanted and it would still be http://localhost:3001. 
+                The file itself doesn't ever get to thr browser-only its contents do. 
+        Now, onto the big issue. 
+            We got our content to display but where's the CSS and JavaScript?
+                The <link> and <script> tags are right there in the source HTNL code, so how can they not be present in the browser?
+
+*   Serve Static files
+        Whenever we need to ask for another file's information in our HTML file, such as <script src="script.js"> or <link href="style.css">, we're actually making HTTP GET requests for a file's data.
+            All of that code lives within our folder structure, but even local requests occur over HTTP.
+        So far as our problem goes, our HTML file loads and immediately makes requests to http://localhost:3001/assets/js/script.js and http://localhost:3001/assets/css/sylte.css.
+            The problem here is that we never created explicit routes in our Express.js to look for and server those files when requsted.
+                Remember, any time we make a request to the server, it looks at every single route we've explicitly created.
+                    If it doesn't find a matching route name, it will think that there's something wrong and won't provide a response.
+        We need to fix this in our server so it knows that when we ask for front-end resources such as images, client-side JavaScript code, or CSS code, the server knows how to respond. 
+            Here's the thing, though—do we have to actually create a route for every front-end asset that we could ever possibly have to use? 
+            What happens if we have 10 pages with their own CSS, JavaScript, and images? 
+                That's a lot of routes! 
+        Rather than creating all of these routes, we can set up some more Express.js middlware that instructs the server to make certian files readibly available and to not gate it behind a server endpoint. 
+        Add the following code to the top of the server.js file, near the two app.use() methods:
+            app.use(express.static('public'));
+        We have added some more middleware to our server and used the express.static() method. The middleware is called static.
+            The way it works is that we provide a file path to a location in our application (in this case, the public folder) and instrcut the server to make these files static resources. 
+                This means that all of our front-end code can now be accessed without having a specific server endpoint created for it. 
+                Every time we create a server that will serve a front end as well as JSON data, we'll always want to use this middleware.
+
+Finish POST Functionality
+*   Now, the HTML is being served but nothing happens when we try to add a new animal using the form.
+        Let's review script.js  
+            It's a fiarly simple setup for this code, as it's only going to handle two different form submissions. 
+                We'll focus on the handleAnimalSubmit) function, which is already set up to gather all the data from inputs and organize it as an object that looks like the following code:
+                    {
+                        name: 'Larry',
+                        species: 'Lemur',
+                        diet: 'omnivore',
+                        personalityTraits: ['hungry']
+                    }
+*   Previous, what browser API did we use to make HTTP requests from out font-end applications?
+        We used the Fetch API's fetch() functionality to make GET requests. 
+
+*   Use Fetch API to POST Data
+        By default, the browser's fetch() functionality performs GET requests.
+            That's how we've used it in the past, to ask a server for information to use on the front end of our application. 
+            This time, we now have data on the front end that needs to be sent, or POSTed, to the back end.
+        The Fetch API also supports POST requests, so let's use that to finish our handleAnimalSubmit() function in script.js. Add the following code at the bottom of that function:
+            fetch('/api/anims', {
+                method: 'POST',
+                headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(animalObject)
+            })
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    }
+                    alert('Error: ' + response.statusText);
+                })
+                .then(postResponse => {
+                    console.log(postResponse);
+                    alert('Thank you for adding an animal!');
+                });
+        So this fetch() function look and works a lot like our previous experience with it when we made GET requests. 
+            The big difference now, however, is that we need to add some more information about the request.
+            First and most importantly, we have to actually specify what type of request it is and set the method to POST.
+                This will allow the request to make it to the proper endpoint in our server.
+            Next, we have to tell the request what type of data we're looking to send and then actually provide the data. 
+                We set the headers property to inform the request that is going to be JSON data. 
+                    That way, we can add stringified JSON data for our animalObject to the body property of the request. 
+                        Without these, we would never receive req.body on the server!
+        Did you notice that the URL we provide is simply /api/animals? 
+            Because the request is coming from the server, we don't have to specify the full URL. 
+                This is similar to how we use <script> and <link> to incorporate local files, except that now it's being done through a fetch() call!
+
+Create Routes to Server Other Pages
+*   In server.js, add the following route right below the route that serves our index.html page:
+        app.get('/animals', (req, res) => {
+            res.sendFile(path.join(__dirname, './public/animals.html'));
+        });
+    This route will take us to /animals. Did you notice how the endpoint here is just /animals?
+        This is the second route we've created so far that doesn't have the term api thrown into it. 
+            This is intentional, because when we create routes we need to stay organized and set expectations of what type of data is being transferred at that endpoint. 
+            We can assume that a route that has the term api in it will deal in transference of JSON data, whereas a more normal-looking endpoint such as /animals should server an HTML page. 
+            Express.js isn't opinionated about how routes should be named and organized, so that's a system developers must to create. 
+                The naming patterns we've used so far in this project closely follow what you'd typically see in a professional setting.
+    We'll get into more details about the front-end code for animals.html soon. 
+        First, let's finish up our GET routes and serve up the zookeepers.html file. 
+            Again, we don't have any real data or enough information to create API endpoints for zookeeper data just yet, but that shouldn't stop us from getting the actual page up and running!
+        Let's add one more route to server.js. You can probably assume how this route will look if you compare it to what we just did for /animals, but it should look like the following code:
+
+            app.get('/zookeepers', (req, res) => {
+            res.sendFile(path.join(__dirname, './public/zookeepers.html'));
+            });
+        There's not much new to explain here. 
+            The only thing that's really different is the route we're going to use to display the HTML content from zookeepers.html.
+
+*   Wildcard Routes:
+        What happens if the client makes a request for a route that doesn't exist, though? 
+            A request to /about, for instance, would result in an error, because there's no route that matches. 
+                Users wouldn't be directed to that URL, anyway, but just in case, we can use a wildcard route to catch these kinds of requests.
+        In server.js, add the following route underneath the /zookeeper route:
+            app.get('*', (req, res) => {
+            res.sendFile(path.join(__dirname, './public/index.html'));
+            });
+        The * will act as a wildcard, meaning any route that wasn't previously defined will fall under this request and will receive the hompage as the response. 
+            Thus, requests for /about or /contact or /membership will essentially be the same now.
+
+*   Important  
+       The order of your routes matters! 
+       The * route should always come last. 
+        Otherwise, it will take precedence over named routes, and you won't see what you expect to see on routes like /zookeeper. 
+
+Finish GET Reqests to Serve Page Data
+*   Remember that everything still has to go through the server.
+        When you want to see a page, you go to the server's route that displays it. 
+        This is a paradigm shift in how we're used to doing thing, especially when working with client-side code, but it's the only way to ensure that any communication between both our front and back-end code is happening correctly.
+
+*   Previously, we made a POST request to /api/animals so the form in index.html can submit and create new animal data. 
+        Now, we're going to revisit our GET functionality using fetch() and actually GET animal data from /api/animals.
+            In the front-end animals.js in the public folder, we need to finish some code that the zoo's front-end designer put together for us. 
+            Let's find the getAnimals() function in animals.js and finish it up.
+            Currently, the function looks like this:
+                const getAnimals = (formData = {}) => {
+                    let queryUrl = '/api/animals?';
+
+                    Object.entries(formData).forEach(([key, value]) => {
+                        queryUrl += `${key}=${value}&`;
+                    });
+
+                    console.log(queryUrl);
+                };
+        This function is actually capable of making two types of requests; it will depend on how the queryUrl ends up looking. 
+            If nothing is passed into formData, then the request will be simply GET /api/animals. This will be what runs on load.
+        If you study the code, however, you may find that we call the handleGetAnimalsSubmit() function on form submission. 
+            This function will gather all of the form input data and package it as an object to send to the getAnimals() function as the formData argument. 
+            From there, the object formData will be passed through the Object.entries() method to create query parameters. 
+                Because all that work is done for us, all we have to do is make the request using queryUrl! Let's do that now.
+            Add the following code inside the getAnimals() function after the other code:
+                fetch(queryUrl)
+                .then(response => {
+                    if (!response.ok) {
+                    return alert('Error: ' + response.statusText);
+                    }
+                    return response.json();
+                })
+                .then(animalData => {
+                    console.log(animalData);
+                    printResults(animalData);
+                });
+            Does this look more familiar? It should, as it's the standard fetch() usage for making a GET request!
+                Remember, when using fetch() we have to check to see if the ok property in the response is true or false. 
+                    This is the part that will check for any HTTP status code the signifies an error. 
+                        If there's an error, we just alert the user that there's something wrong. 
+                        If everything's okay, we still have to use the .json() method to parse our response into readable JSON format.
+                        When that's all done, we send our array of animal data to the printResults() function, where it generates cards for each animal and prints them to the page!
+
+*   On the job
+        For now, we'll use alert because this is more for the zoo to work with and not the general publc.
+            Note that it's considered best practice to display error messages on the page for a better user experience.
+                This can be done as a modal or something known as a "toast" dialog box.

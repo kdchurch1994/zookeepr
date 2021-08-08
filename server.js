@@ -12,6 +12,9 @@ app.use(express.urlencoded({ extended: true }));
 // parse incoming JSON data
 app.use(express.json());
 
+app.use(express.static('public')); // Express middlware that uses the express.static() method. We provide a file path to the location in our application and instruct the server to make these files static resources. 
+                                   // This means that all of our front-end code can now be access without having a specific server endpoint created for it. 
+
 function filterByQuery(query, animalsArray) { //This function will take in req.query as an argument and filter through the animals accordingly, returning the new filtered array. 
     let personalityTraitsArray = [];
     // Note that we save the animalsArray as filteredResults here:
@@ -104,6 +107,22 @@ app.post('/api/animals', (req, res) => {
         res.json(animal);
     }
 });
+
+app.get('/', (req, res) => { //This route directs us to the index.html page, which will display our webpage. 
+    res.sendFile(path.join(__dirname, './public/index.html')); //This allows us to display the contents of the index.html page at the server route / while the file doesn't get to the browser
+}); //Uses relative path as opposed to absolute path
+
+app.get('/animals', (req, res) => {  //This route directs us to the animals.html page. The user would need to naviagate to the server route / and type animals at the end. In other words https://localhost:3001/animals
+    res.sendFile(path.join(__dirname, './public/animals.html')); //This allows us to display the contents of the animals.html page at the server route /animals, while the file doesn't get to the browser
+});
+
+app.get('/zookeepers', (req, res) => { //This route directs us to the zookeepers.html page. The user would need to naviagate to the server route / and type zookeepers at the end. In other words https://localhost:3001/zookeepers
+    res.sendFile(path.join(__dirname, './public/zookeepers.html')); //This allows us to display the contents of the zookeepers.html page at the server route /zookeepers, while the file doesn't get to the browser
+});
+
+app.get('*', (req, res) => { //This is a wildcard route that will be used if the user tries to navigate to a route that has not been specified. For example, if the user went to https://localhost:3001/about, they would be redirected to this route.
+    res.sendFile(path.join(__dirname, './public/index.html')); //This allows us to display the contents of the index.html page at the server route / while the file doesn't get to the browser
+}); //This wildcard route will display to users the index.html page.
 
 app.listen(PORT, () => { //The listen() method tells the server to listen on either the port being used by Heroku (if deployed to Heroku) or to Port 3001 if ran locally
     console.log(`API server now on port ${PORT}!`); //The server sends the message "API server now on port ..." either port 3001 if local, or whatever Port is being utilized by Heroku, to the console log (Tells us the server is on and listening for requests)
