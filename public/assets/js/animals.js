@@ -41,7 +41,7 @@ const getAnimals = (formData = {}) => { //This function is actually capable of m
     .then(animalData => {
       console.log(animalData);
       printResults(animalData); 
-    }) //When that's all done, we send our array of animal data to the printResults() function, where it generates cards for each animal and prints them to the page!
+    }); //When that's all done, we send our array of animal data to the printResults() function, where it generates cards for each animal and prints them to the page!
 }; 
 
 const handleGetAnimalsSubmit = event => {
