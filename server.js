@@ -16,14 +16,12 @@ const htmlRoutes = require('./routes/htmlRoutes'); //Tells the server to look fo
 app.use(express.urlencoded({ extended: true }));
 // parse incoming JSON data
 app.use(express.json());
-app.use(express.static('public')); //allows us to use the css and js by allowing the html to reference these as static
+app.use(express.static('public')); // Express middlware that uses the express.static() method. We provide a file path to the location in our application and instruct the server to make these files static resources. 
+                                   // This means that all of our front-end code can now be accessed without having a specific server endpoint created for it. 
 
 app.use('/api', apiRoutes);
 app.use('/', htmlRoutes); //This is our way of telling the server that any time a client navigates to <ourhost>/api, the app will use the router we set up in apiRoutes. 
 //If / is the endpoint, then the router will serve back our HTML routes. 
-
-app.use(express.static('public')); // Express middlware that uses the express.static() method. We provide a file path to the location in our application and instruct the server to make these files static resources. 
-                                   // This means that all of our front-end code can now be access without having a specific server endpoint created for it. 
 
 app.listen(PORT, () => { //The listen() method tells the server to listen on either the port being used by Heroku (if deployed to Heroku) or to Port 3001 if ran locally
     console.log(`API server now on port ${PORT}!`); //The server sends the message "API server now on port ..." either port 3001 if local, or whatever Port is being utilized by Heroku, to the console log (Tells us the server is on and listening for requests)
