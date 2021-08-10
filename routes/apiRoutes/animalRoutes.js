@@ -1,11 +1,11 @@
-const { filterByQuery, findById, createNewAnimal, validateAnimal } = require('../../lib/animals'); // Imports the functions from lib/animals.js
-const { animals } = require('../../data/animals'); // Imports the animal object from data/animals.json
-
 // Reason for using router instead of app - The variable that we use to create endpoints, app, is set to express(). 
 // This means that if we were to move the app routes from server.js to another file, we'd need to make sure we're using the same app the entire time.
 // If we were to add const app = express(); at the top of this new file, then app would not be referring to the same app that our server is listening to in server.js
 // It would be a completely new app.
 const router = require('express').Router(); //Imports the Express.js feature called Router. Router allows us to declare routes in any file as long as we use the proper middlware.
+
+const { filterByQuery, findById, createNewAnimal, validateAnimal } = require('../../lib/animals'); // Imports the functions from lib/animals.js
+const { animals } = require('../../data/animals'); // Imports the animal object from data/animals.json
 
 router.get('/animals', (req, res) => { //A get route to pull data from the animals api and respond with the whole animals.json file or allow you to search using the ? parameter in the url
     let results = animals;              //That particular datatype must be listed in the json file or it will not return any working results. 
