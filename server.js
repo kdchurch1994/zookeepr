@@ -16,6 +16,7 @@ const htmlRoutes = require('./routes/htmlRoutes'); //Tells the server to look fo
 app.use(express.urlencoded({ extended: true }));
 // parse incoming JSON data
 app.use(express.json());
+app.use(express.static('public')); //allows us to use the css and js by allowing the html to reference these as static
 
 app.use('/api', apiRoutes);
 app.use('/', htmlRoutes); //This is our way of telling the server that any time a client navigates to <ourhost>/api, the app will use the router we set up in apiRoutes. 
