@@ -1,5 +1,8 @@
 const express = require('express'); //Allows us to use the Express NPM package
 
+const PORT = process.env.PORT || 3001; // This line of code sets the PORT variable to either process.env.PORT, which is telling the app to use that port (environment variable set by Heroku) if it is set up, and if not, default to port 80. If ran locally, it will use port 3001
+const app = express(); //Instantiates (starts) the Express.js server
+// Line 3 Note: We assign express() to the app variable so that we can later chain on methods to the Express.js server.
 //The require() statements will read the index.js files in each of the directories indicated. 
 //This mechanism works the same way as directory navigation does in a website: 
 //If we navigate to a directory that doesn't have an index.html file, then the contents are displayed in a directory listing. 
@@ -7,9 +10,7 @@ const express = require('express'); //Allows us to use the Express NPM package
 const apiRoutes = require('./routes/apiRoutes'); //Tells the server to look for the index.js file in this directory. This will tell the application what routes to use
 const htmlRoutes = require('./routes/htmlRoutes'); //Tells the server to look for the index.js file in this directory. This will tell the application what routes to use
 
-const PORT = process.env.PORT || 3001; // This line of code sets the PORT variable to either process.env.PORT, which is telling the app to use that port (environment variable set by Heroku) if it is set up, and if not, default to port 80. If ran locally, it will use port 3001
-const app = express(); //Instantiates (starts) the Express.js server
-// Line 3 Note: We assign express() to the app variable so that we can later chain on methods to the Express.js server.
+
 
 // parse incoming string or array data
 app.use(express.urlencoded({ extended: true }));
