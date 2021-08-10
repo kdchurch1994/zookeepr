@@ -641,3 +641,822 @@ Finish GET Reqests to Serve Page Data
         For now, we'll use alert because this is more for the zoo to work with and not the general publc.
             Note that it's considered best practice to display error messages on the page for a better user experience.
                 This can be done as a modal or something known as a "toast" dialog box.
+
+Move Animal Functions to a Seperate file
+*   We'll start by separating the animals out into a separate folder called lib/. 
+        You might recall that lib is short for library, and that its purpose is to store files that will be used by multiple files in your application.
+            Go ahead and create a lib/ folder. Then create a file named animals.js in that folder.
+    Now move the following functions from server.js into the new animals.js:
+        filterByQuery()
+        findById()
+        createNewAnimal()
+        validateAnimal()
+    If you cut-and-pasted the functions from server.js to lib/animals.js, your work is not quite done. 
+        Whenever we move code from one folder to another, we should always check to ensure that all of the relative paths are accurate.
+            If you look in createNewAnimal(), the path to the animals.json has been:
+                path.join(__dirname, "./data/animals.json"),
+            But lib/animals.js is one level below where server.js is located, so the relative path needs editing. 
+                It now needs ./ changed to ../, like so:
+                    path.join(__dirname, "../data/animals.json"),
+    The updated code in animals.js should look like the following code:
+
+        function filterByQuery(query, animalsArray) {
+            let personalityTraitsArray = [];
+            let filteredResults = animalsArray;
+            if (query.personalityTraits) {
+                if (typeof query.personalityTraits === 'string') {
+                    personalityTraitsArray = [query.personalityTraits];
+                } else {
+                    personalityTraitsArray = query.personalityTraits;
+                }
+                console.log(personalityTraitsArray);
+                personalityTraitsArray.forEach(trait => {
+                    filteredResults = filteredResults.filter(
+                        animal => animal.personalityTraits.indexOf(trait) !== -1
+                    );
+                });
+            }
+            if (query.diet) {
+                filteredResults = filteredResults.filter(animal => animal.diet === query.diet);
+            }
+            if (query.species) {
+                filteredResults = filteredResults.filter(animal => animal.species === query.species);
+            }
+            if (query.name) {
+                filteredResults = filteredResults.filter(animal => animal.name === query.name);
+            }
+            return filteredResults;
+        }
+
+        function findById(id, animalsArray) {
+            const result = animalsArray.filter(animal => animal.id === id)[0];
+            return result;
+        }
+
+        function createNewAnimal(body, animalsArray) {
+            const animal = body;
+            animalsArray.push(animal);
+            fs.writeFileSync(
+                path.join(__dirname, '../data/animals.json'),
+                JSON.stringify({animals: animalsArray}, null, 2)
+            );
+            return animal;
+        }
+
+        function validateAnimal(animal) {
+            if (!animal.name || typeof animal.name !== 'string') {
+                return false;
+            }
+            if (!animal.species || typeof animal.species !== 'string') {
+                return false;
+            }
+            if (!animal.diet || typeof animal.diet !== 'string') {
+                return false;
+            }
+            if (!animal.personalityTraits || !Array.isArray(animal.personalityTraits)) {
+                return false;
+            }
+            return true;
+        }
+
+    Depending on the color scheme you've chosen in VSCode, missing dependencies will often be highlighted in a color that stands out, typically red. 
+        Scan the file to see if you can see any missing dependencies.
+    The two dependencies of this new lib/animals.js file are fs and path. 
+        Be sure to require them at the top of the file, like this:
+
+            const fs = require("fs");
+            const path = require("path");
+
+        Lastly, now that all of your functions are in this animals.js file, don't forget to export them using module.exports, just like you've done in the past.
+            The exported functions should look like the following code:
+
+                module.exports = {
+                    filterByQuery,
+                    findById,
+                    createNewAnimal,
+                    validateAnimal
+                };
+        Perfect! At this point, we could choose to require the lib functions directly in the server.js file, but this isn't ideal. 
+            That would help get some of the code out of server.js, but there would still be a lot of router code in server.js.
+
+        When creating applications, it can be helpful to take a moment to think about the responsibility of every file in the system. Let's do that. 
+            We know, from its name alone, that the server.js file should be in charge of starting our server. 
+            We also know that the animals functions are already separated out into their own files.
+        The biggest remaining responsibility we can move from server.js is the routes.
+            Take a look at the following code in server.js:
+                app.get('/api/animals', (req, res) => {
+                    let results = animals;
+                    if (req.query) {
+                        results = filter5ByQuery(req.query, results);
+                    }
+                    res.json(results;)
+                });
+            There's one dependency here that can't be used in other files.
+                The variable that we use to create endpoints, app, is set to express().
+                    This means that if we were to move the app routes from server.js to another file, we'd need to make sure we're using the same app the entire time.
+                        Let's pretend that we moved our app.get() into its own file.
+                            If we were to add const app = express(); at the top of this new file, then app would not be referring to the same app that our server is listening to in server.js
+                            It would be a completely new app.
+                                So instead of passing around the same app to every file, we're going to use another feature of Express.js called the Router.
+
+*   On the job  
+        Many companies have servers with hundreds of possible endpoints. 
+            Even if they were to seperate out the lib functions as we've done, that would still mean that the server.js file has an enormous amount of code.
+            In these cases, companies modulize their router code as well.
+
+*   What is the purpose of app?
+        App represents a single instance of the Express.js server
+
+*   Rewind
+        Remember learning about OOP? 
+            Every time you call express(), you're creating a new Express.js object. 
+            Changing the properties or methods on one Express.js object doesn't affect other Express.js objects you create.
+
+Move Roues to a Seperate file
+*   Let's move all of our animals routes into a separate file. 
+        Create a new folder named routes/. 
+            Inside routes/, create a new folder called apiRoutes/. 
+                Then, in apiRoutes, create a new file named animalRoutes.js.
+    Move all of the animals API routes from server.js into animalRoutes.js. 
+        We need to edit the code, though. 
+            Our router function will append /api to each URL, so we must strip /api from each address.
+                For instance, instead of this code:
+                    app.get('/api/animals', (req, res) => {
+
+                Removing /api will give us this:
+                    app.get('/animals', (req, res) => {
+
+        Notice that our app functions are making calls to filterByQuery(), findById(), createNewAnimal(), and validateAnimal(). 
+            So, we also need to import those functions that we've moved into lib/animals.js. 
+                But we also need to import the animals object that's in data/animals, because those functions make use of it.
+
+        We'll also have to be careful in constructing relative paths to their locations. Remember that ../ is one level higher, so ../../ is two levels higher.
+            So, the imports at the top of the file should be:
+                const { filterByQuery, findById, createNewAnimal, validateAnimal } = require('../../lib/animals');
+                const { animals } = require('../../data/animals');
+
+        The updated animalRoutes.js file should now look like this:
+            const { filterByQuery, findById, createNewAnimal, validateAnimal } = require('../../lib/animals');
+            const { animals } = require('../../data/animals');
+
+            app.get('/animals', (req, res) => {
+                let results = animals;
+                if (req.query) {
+                    results = filterByQuery(req.query, results);
+                }
+                res.json(results);
+            });
+
+            app.get('/animals/:id', (req, res) => {
+                const result = findById(req.params.id, animals);
+                if (result) {
+                    res.json(result);
+                } else {
+                    res.send(404);
+                }
+            });
+
+            app.post('/animals', (req, res) => {
+                // set id based on what the next index of the array will be
+                req.body.id = animals.length.toString();
+
+                if (!validateAnimal(req.body)) {
+                    res.status(400).send('The animal is not properly formatted.');
+                } else {
+                    const animal = createNewAnimal(req.body, animals);
+                    res.json(animal);
+                }
+            });
+        
+        Next, as we discussed in the previous section, we cannot use app any longer, because it's defined in the server.js file and cannot be accessed here. 
+            Instead, we'll use Router, which allows you to declare routes in any file as long as you use the proper middleware.
+
+        We'll start by adding the following code to the top of animalRoutes.js to start an instance of Router:
+            const router = require('express').Router();
+
+        Next, we'll need to change all of the app routes to use router instead. 
+        In every routing block in the code, change app to route. 
+        For example, the GET route will look like this:
+
+            router.get('/animals', (req, res) => {
+                let results = animals;
+                if (req.query) {
+                    results = filterByQuery(req.query, results);
+                }
+                res.json(results);
+            });
+
+        Last, we should export the router at the end of the file, like this:
+            module.exports = router;
+        
+        The complete animalRoutes.js file should look like this:
+            const router = require("express").Router();
+            const { filterByQuery, findById, createNewAnimal, validateAnimal, } = require("../../lib/animals");
+            const { animals } = require("../../data/animals");
+
+            router.get("/animals", (req, res) => {
+                let results = animals;
+                if (req.query) {
+                    results = filterByQuery(req.query, results);
+                }
+                res.json(results);
+            });
+
+            router.get("/animals/:id", (req, res) => {
+                const result = findById(req.params.id, animals);
+                if (result) {
+                    res.json(result);
+                } else {
+                    res.send(404);
+                }
+            });
+
+            router.post("/animals", (req, res) => {
+                // set id based on what the next index of the array will be
+                req.body.id = animals.length.toString();
+
+                // if any data in req.body is incorrect, send 400 error back
+                if (!validateAnimal(req.body)) {
+                    res.status(400).send("The animal is not properly formatted.");
+                } else {
+                    const animal = createNewAnimal(req.body, animals);
+                    res.json(animal);
+                }
+            });
+
+            module.exports = router;
+
+ Great work. You've been very meticulous in modularizing server.js, and your care and attention is paying off. The file is much more manageable already!
+
+We have all of our API routes for animals set up. Now we're going to do the same for the routes that serve HTML. Go ahead and create a new folder inside of routes/ called htmlRoutes/. Within htmlRoutes/, create a new file called index.js.
+
+Move the remaining routing functions from server.js to htmlRoutes/index.js. But let's edit it so that we export each routing call using router, not app. We'll also need to use path.
+
+See if you can figure out how to do this. When you're finished, your code should look like this:
+
+const path = require('path');
+const router = require('express').Router();
+
+router.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../public/index.html'));
+});
+
+router.get('/animals', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../public/animals.html'));
+});
+
+router.get('/zookeepers', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../public/zookeepers.html'));
+});
+
+router.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../public/index.html'));
+});
+
+module.exports = router;
+Next, we're going to add middleware so that our app knows about the routes in animalRoutes.js. 
+    Let's start by adding an index.js file to the apiRoutes/ folder. 
+        After you've created the index.js file, add the following code to it:
+
+            const router = require('express').Router();
+            const animalRoutes = require('../apiRoutes/animalRoutes');
+
+            router.use(animalRoutes);
+
+            module.exports = router;
+        Here we're employing Router as before, but this time we're having it use the module exported from animalRoutes.js. 
+            (Note that the .js extension is implied when supplying file names in require()).
+        Doing it this way, we're using apiRoutes/index.js as a central hub for all routing functions we may want to add to the application. 
+            It may seem like overkill with just one exported module, but as your application evolves, it will become a very efficient mechanism for managing your routing code and keeping it modularized.
+            One last thing here: Notice our careful use of relative paths in the require() statement. Always double check these when your files become nested.
+        We've added this code so that later, when we add additional routes, they can all be exported from the same file.
+        Now go into server.js and update the file to include this at the top:
+
+        const apiRoutes = require('./routes/apiRoutes');
+        const htmlRoutes = require('./routes/htmlRoutes');
+
+    The require() statements will read the index.js files in each of the directories indicated. 
+        This mechanism works the same way as directory navigation does in a website: If we navigate to a directory that doesn't have an index.html file, then the contents are displayed in a directory listing. 
+        But if there's an index.html file, then it is read and its HTML is displayed instead. 
+            Similarly, with require(), the index.js file will be the default file read if no other file is provided, which is the coding method we're using here.
+    And then add the following right below app.use(express.json()) in server.js:
+
+        app.use('/api', apiRoutes);
+        app.use('/', htmlRoutes);
+
+    This is our way of telling the server that any time a client navigates to <ourhost>/api, the app will use the router we set up in apiRoutes. 
+        If / is the endpoint, then the router will serve back our HTML routes.           
+
+Test the Functions
+*   Now that the animal functions are all in their own files, we can write tests for them without accidentally affecting the Express.js server.
+    This is different from the TDD we've done in the past. 
+        Rather than having failing/passing tests drive our development, we are building the tests after we've ensured that our application works properly.
+        Create a folder named __tests__, and inside that folder, create a file named animals.test.js. 
+        Add a unit test for each function in lib/animals.js. 
+        When you're finished, your code should look something like the following code:
+
+            const fs = require("fs");
+            const {
+                filterByQuery,
+                findById,
+                createNewAnimal,
+                validateAnimal,
+            } = require("../lib/animals.js");
+            const { animals } = require("../data/animals");
+
+            test("creates an animal object", () => {
+                const animal = createNewAnimal(
+                    { name: "Darlene", id: "jhgdja3ng2" },
+                    animals
+                );
+
+                expect(animal.name).toBe("Darlene");
+                expect(animal.id).toBe("jhgdja3ng2");
+            });
+
+            test("filters by query", () => {
+                const startingAnimals = [
+                    {
+                        id: "3",
+                        name: "Erica",
+                        species: "gorilla",
+                        diet: "omnivore",
+                        personalityTraits: ["quirky", "rash"],
+                    },
+                    {
+                        id: "4",
+                        name: "Noel",
+                        species: "bear",
+                        diet: "carnivore",
+                        personalityTraits: ["impish", "sassy", "brave"],
+                    },
+                ];
+
+                const updatedAnimals = filterByQuery({ species: "gorilla" }, startingAnimals);
+
+                expect(updatedAnimals.length).toEqual(1);
+                });
+
+                test("finds by id", () => {
+                    const startingAnimals = [
+                        {
+                            id: "3",
+                            name: "Erica",
+                            species: "gorilla",
+                            diet: "omnivore",
+                            personalityTraits: ["quirky", "rash"],
+                        },
+                        {
+                            id: "4",
+                            name: "Noel",
+                            species: "bear",
+                            diet: "carnivore",
+                            personalityTraits: ["impish", "sassy", "brave"],
+                        },
+                    ];
+
+                    const result = findById("3", startingAnimals);
+
+                    expect(result.name).toBe("Erica");
+                });
+
+                test("validates personality traits", () => {
+                    const animal = {
+                        id: "3",
+                        name: "Erica",
+                        species: "gorilla",
+                        diet: "omnivore",
+                        personalityTraits: ["quirky", "rash"],
+                    };
+
+                    const invalidAnimal = {
+                        id: "3",
+                        name: "Erica",
+                        species: "gorilla",
+                        diet: "omnivore",
+                    };
+
+                    const result = validateAnimal(animal);
+                    const result2 = validateAnimal(invalidAnimal);
+
+                    expect(result).toBe(true);
+                    expect(result2).toBe(false);
+                });
+
+        Before you run the tests, make sure that Jest is installed and added to package.json.
+        Now make sure that all of your tests pass before moving on by running npm test. 
+
+        There is one problem with running our tests. Open up the animals.json file and look at the last entry. 
+        The entry should look like the following:
+            {
+                "name": "Darlene"
+                "id": "jhgdja3ng2"
+            }
+        That's the same data from our test! 
+            Our createAnimal function has a side effect: it also writes to our JSON!
+            We don't want to write to the JSON file every time we run npm test
+            To avoid this, we'll use a Jest method that we've used in the past: mock().
+
+            When we mock fs, we'll be able to execute methods like fs.writeFileSync() without actually writing anything to a file. 
+            This will prevent us from accidentally creating new animals every time we run a test.
+
+            In animals.test.js, add jest.mock('fs'); above the first test.
+
+            Now remove the extra animal from animals.json and run the tests again. As long as you've included the mock(), no extra animals will be created in the JSON file.
+
+Build Dataset and Functionality for zookeepers
+*   The zoo has informed us that some of their employees are starting to work remotely and the zoo needs to move their information to the cloud. 
+        We can fold that right into the Zoo Keepr application!
+
+        Let's start by creating a new JSON for zookeepers.
+            First ensure that you have a zookeepers.json file in the data/ directory.
+            Next, create a new file in lib/ for the zookeepers; name it zookeepers.js
+        The new lib/zookeepers.js file will look very similar to the lib/animals.js file except that we aren't keeping track of the zookeepers' personality traits (that would be weird!). 
+        This should make the filterByQuery() function much easier to write.
+
+Go ahead and add the following code to the lib/zookeepers.js file:
+
+const fs = require("fs");
+const path = require("path");
+
+function filterByQuery(query, zookeepers) {
+  let filteredResults = zookeepers;
+  if (query.age) {
+    filteredResults = filteredResults.filter(
+      // Since our form data will be coming in as strings, and our JSON is storing
+      // age as a number, we must convert the query string to a number to
+      // perform a comparison:
+      (zookeeper) => zookeeper.age === Number(query.age)
+    );
+  }
+  if (query.favoriteAnimal) {
+    filteredResults = filteredResults.filter(
+      (zookeeper) => zookeeper.favoriteAnimal === query.favoriteAnimal
+    );
+  }
+  if (query.name) {
+    filteredResults = filteredResults.filter(
+      (zookeeper) => zookeeper.name === query.name
+    );
+  }
+  return filteredResults;
+}
+
+function findById(id, zookeepers) {
+  const result = zookeepers.filter((zookeeper) => zookeeper.id === id)[0];
+  return result;
+}
+
+function createNewZookeeper(body, zookeepers) {
+  const zookeeper = body;
+  zookeepers.push(zookeeper);
+  fs.writeFileSync(
+    path.join(__dirname, "../data/zookeepers.json"),
+    JSON.stringify({ zookeepers }, null, 2)
+  );
+  return zookeeper;
+}
+
+function validateZookeeper(zookeeper) {
+  if (!zookeeper.name || typeof zookeeper.name !== "string") {
+    return false;
+  }
+  if (!zookeeper.age || typeof zookeeper.age !== "number") {
+    return false;
+  }
+  if (
+    !zookeeper.favoriteAnimal ||
+    typeof zookeeper.favoriteAnimal !== "string"
+  ) {
+    return false;
+  }
+  return true;
+}
+
+module.exports = {
+  filterByQuery,
+  findById,
+  createNewZookeeper,
+  validateZookeeper,
+};
+Just as you've done for all of the functions in lib/animals.js, write tests for all of the zookeeper functions and make sure they work. 
+When you're finished, it should look something like this:
+
+const fs = require("fs");
+const {
+  filterByQuery,
+  findById,
+  createNewZookeeper,
+  validateZookeeper,
+} = require("../lib/zookeepers.js");
+const { zookeepers } = require("../data/zookeepers");
+
+jest.mock("fs");
+test("creates an zookeeper object", () => {
+  const zookeeper = createNewZookeeper(
+    { name: "Darlene", id: "jhgdja3ng2" },
+    zookeepers
+  );
+
+  expect(zookeeper.name).toBe("Darlene");
+  expect(zookeeper.id).toBe("jhgdja3ng2");
+});
+
+test("filters by query", () => {
+  const startingZookeepers = [
+    {
+      id: "2",
+      name: "Raksha",
+      age: 31,
+      favoriteAnimal: "penguin",
+    },
+    {
+      id: "3",
+      name: "Isabella",
+      age: 67,
+      favoriteAnimal: "bear",
+    },
+  ];
+
+  const updatedZookeepers = filterByQuery({ age: 31 }, startingZookeepers);
+
+  expect(updatedZookeepers.length).toEqual(1);
+});
+
+test("finds by id", () => {
+  const startingZookeepers = [
+    {
+      id: "2",
+      name: "Raksha",
+      age: 31,
+      favoriteAnimal: "penguin",
+    },
+    {
+      id: "3",
+      name: "Isabella",
+      age: 67,
+      favoriteAnimal: "bear",
+    },
+  ];
+
+  const result = findById("3", startingZookeepers);
+
+  expect(result.name).toBe("Isabella");
+});
+
+test("validates age", () => {
+  const zookeeper = {
+    id: "2",
+    name: "Raksha",
+    age: 31,
+    favoriteAnimal: "penguin",
+  };
+
+  const invalidZookeeper = {
+    id: "3",
+    name: "Isabella",
+    age: "67",
+    favoriteAnimal: "bear",
+  };
+
+  const result = validateZookeeper(zookeeper);
+  const result2 = validateZookeeper(invalidZookeeper);
+
+  expect(result).toBe(true);
+  expect(result2).toBe(false);
+});
+Now in apiRoutes/, create another file to handle all zookeeper API routes. See if you can remember what to call that file on your own.
+
+If you guessed zookeeperRoutes.js, you're right. And if you think it should have routing instructions like those we created in animalRoutes.js, that's also right. 
+
+Your code should look like this:
+
+const router = require("express").Router();
+const {
+  filterByQuery,
+  findById,
+  createNewZookeeper,
+  validateZookeeper,
+} = require("../../lib/zookeepers");
+const { zookeepers } = require("../../data/zookeepers");
+
+router.get("/zookeepers", (req, res) => {
+  let results = zookeepers;
+  if (req.query) {
+    results = filterByQuery(req.query, results);
+  }
+  res.json(results);
+});
+
+router.get("/zookeepers/:id", (req, res) => {
+  const result = findById(req.params.id, zookeepers);
+  if (result) {
+    res.json(result);
+  } else {
+    res.send(404);
+  }
+});
+
+router.post("/zookeepers", (req, res) => {
+  req.body.id = zookeepers.length.toString();
+
+  if (!validateZookeeper(req.body)) {
+    res.status(400).send("The zookeeper is not properly formatted.");
+  } else {
+    const zookeeper = createNewZookeeper(req.body, zookeepers);
+    res.json(zookeeper);
+  }
+});
+
+module.exports = router;
+
+Don't forget to go into apiRoutes/index.js and update the file with middleware so that the router uses the new zookeeper routes with the following code:
+
+router.use(require('./zookeeperRoutes'));
+
+Once you believe you've properly set up your API routes, try navigating to http://localhost:3001/api/zookeepers in your browser.
+
+Create Front-End Functionality for zookeepers (11.4.7)
+*   Rewind  
+        Every time a user navigates to a page, a request is sent to the server for that route. 
+            Adding a link to /zookeepers makes the browser request a resource from that route on the server.
+            In this case, an HTML file is sent as a response.
+
+*   Take a look at the page served from http://localhost:3001/ again. 
+    The HTML already has the form that we need to allow users to create new zookeepers! But is that functionality hooked up in public/assets/js/script.js?
+
+    Let's start by figuring out the ID of the zookeeper form. To find that, look in index.html, which is shown in the following code:
+
+        <form id="zookeeper-form">
+            <label for="zookeeper-name" class="form-label">Zookeeper Name</label>
+            <input type="text" id="zookeeper-name" class="form-input input" placeholder="Enter Name"
+                name="zookeeper-name">
+
+            <label for="age-input" class="form-label input">Age</label>
+            <input type="number" id="age-input" class="form-input" placeholder="Enter Age" name="age">
+
+            <label for="favorite-animal" class="form-label">Favorite Animal</label>
+            <input type="text" class="form-input input" id="favorite-animal" placeholder="Enter Favorite Animal"
+                name="favorite-animal">
+
+            <button class="btn">Add Zookeeper</button>
+        </form>
+
+    Did you find it? 
+        That's right—it's zookeeper-form.
+
+    Let's add a query selector at the top of public/assets/js/script.js, like this:
+
+        const $zookeeperForm = document.querySelector('#zookeeper-form');
+    
+    Now we just need to create a new function to handle the zookeeper creation to script.js, just as we've done for animals. Add the following code:
+
+        const handleZookeeperFormSubmit = event => {
+            event.preventDefault();
+
+            // get zookeeper data and organize it
+            const name = $zookeeperForm.querySelector('[name="zookeeper-name"]').value;
+            const age = parseInt($zookeeperForm.querySelector('[name="age"]').value);
+            const favoriteAnimal = $zookeeperForm.querySelector('[name="favorite-animal"]').value;
+
+            const zookeeperObj = { name, age, favoriteAnimal };
+            console.log(zookeeperObj);
+            fetch('api/zookeepers', {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(zookeeperObj)
+            })
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    }
+                    alert('Error: ' + response.statusText);
+                })
+                .then(postResponse => {
+                    console.log(postResponse);
+                    alert('Thank you for adding a zookeeper!');
+                });
+        };
+    Following that code block, add this above the animalForm event listener that's at the bottom of the file:
+
+        $zookeeperForm.addEventListener('submit', handleZookeeperFormSubmit);
+
+    Now make sure to test the new form and ensure that everything works when we add a zookeeper. You should get an alert.
+    Make sure to test the form validation as well by submitting a form that has missing data. Try leaving out out the zookeeper's age. You should get an error alert.
+
+    The homepage works with our new zookeeper routes.
+     Now we're going to finish up by adding a zookeeper display page to the application.
+
+    Review your routes/htmlRoutes/index.js file. 
+        We previously created the zookeepers route in server.js, then moved it to this index.js file, and revised it to use the router. 
+        Double-check that the routes/htmlRoutes/index.js has this code:
+
+            const path = require("path");
+            const router = require("express").Router();
+
+            router.get("/", (req, res) => {
+                res.sendFile(path.join(__dirname, "../../public/index.html"));
+            });
+
+            router.get("/animals", (req, res) => {
+                res.sendFile(path.join(__dirname, "../../public/animals.html"));
+            });
+
+            router.get("/zookeepers", (req, res) => {
+                res.sendFile(path.join(__dirname, "../../public/zookeepers.html"));
+            });
+
+            router.get("*", (req, res) => {
+                res.sendFile(path.join(__dirname, './public/index.html'));
+            });
+
+            module.exports = router;
+
+        Think back to our JSON response from the zookeepers route. 
+            Unlike the animals, there's no property on the zookeepers that could be a multiple choice or multi-select, like personalityTraits or diet. 
+                We could potentially create a multi-select from the zookeeper's favorite animals, but that could make for a lot of choices.
+
+            Let's update the zookeepers.html so that it includes a search section
+            Add the new HTML as a <section> that follows the other two <section> elements that already exist in the code. 
+                The HTML for the display area section should now look something like the following code:
+
+                    <section class="my-2 flex-row justify-space-between">
+                        <div class="col-12 col-lg-3 bg-dark p-3">
+                            <h3 class="text-light">Search For Zookeepers</h3>
+                            <form id="zookeeper-form">
+                                <label for="name-input" class="form-label">Search by name</label>
+                                <input name="name" id="name-input" class="form-input" />
+                                <label for="age-input" class="form-label">Search by age</label>
+                                <input name="age" id="age-input" class="form-input" type="number" />
+                                <button class="btn">Get Zookeepers</button>
+                            </form>
+                        </div>
+                        <div class="col-12 col-lg-9 bg-dark p-3">
+
+                            <div class="flex-row justify-space-between" id="display-area"></div>
+                        </div>
+                    </section>
+
+                Open public/assets/js/zookeeper.js in your IDE. 
+                    Note that it has two functions similar to what is found in the public/assets/js/animals.js front-end file: printResults() and getZookeepers().
+
+                Just as with public/assets/js/animals.js, we want to setup the public/assets/js/zookeeper.js file so that it can handle queries. 
+                Let's start by updating getZookeepers(), as shown in the following code:
+
+                    const getZookeepers = (formData = {}) => {
+                        let queryUrl = '/api/zookeepers?';
+
+                        Object.entries(formData).forEach(([key, value]) => {
+                            queryUrl += `${key}=${value}&`;
+                        });
+
+                        fetch(queryUrl)
+                            .then(response => {
+                                if (!response.ok) {
+                                    return alert(`Error: ${response.statusText}`);
+                                }
+                                return response.json();
+                            })
+                            .then(zookeeperArr => {
+                                console.log(zookeeperArr);
+                                printResults(zookeeperArr);
+                            });
+                    };
+
+                    getZookeepers();
+
+                Great. Take a moment to check that the zookeeper page automatically populates with zookeepers upon page load.
+                    we still need to add a function to handle the form data, then pass it as an argument to getZookeepers(). 
+                    Create a function called handleGetZookeepersSubmit(). 
+                        This function should take the values from the form in zookeepers.html and pass them as an object to getZookeepers().
+
+                    Once you're finished, the code should look like this:
+
+                        const handleGetZookeepersSubmit = event => {
+                            event.preventDefault();
+                            const nameHTML = $zookeeperForm.querySelector('[name="name"]');
+                            const name = nameHTML.value;
+
+                            const ageHTML = $zookeeperForm.querySelector('[name="age"]');
+                            const age = ageHTML.value;
+
+                            const zookeeperObject = { name, age };
+
+                            getZookeepers(zookeeperObject);
+                        };
+                        
+                Now we just need to create a reference to the zookeeper form and put a submit event listener on it.
+
+                At the top of the public/assets/js/zookeeper.js file, add this, which will establish a reference to the form:
+
+                    const $zookeeperForm = document.querySelector("#zookeeper-form");
+
+                Then, at the bottom of the file, but—importantly—above the getZookeepers() function call, add a submit event listener on the zookeeper form, like this:
+
+                    $zookeeperForm.addEventListener('submit', handleGetZookeepersSubmit);
+
+                Now try testing the new form by searching for one of the zookeepers by name or age. 
+                    You should see that the results are limited to your new query.
