@@ -22,27 +22,27 @@ const printResults = resultArr => {
   $displayArea.innerHTML = animalHTML.join('');
 };
 
-const getAnimals = (formData = {}) => { //This function is actually capable of making two types of requrests; it will depend on how the queryUrl ends up looking.
-  let queryUrl = '/api/animals?';       //If nothing is passed into formData, then the request will be simply GET /api/animals. This function will gather all of the form input data and package it as an object to send to the getAnimals() function as the formData arugmenet.
-                                        //From there, the object formData will be passed through the Object.entries() method to create query parameters.
+const getAnimals = (formData = {}) => {
+  let queryUrl = '/api/animals?';
+
   Object.entries(formData).forEach(([key, value]) => {
     queryUrl += `${key}=${value}&`;
   });
 
   console.log(queryUrl);
 
-  fetch(queryUrl) //Used to make a GET request from the server to view animals that are in the animals.json file and animals that are created
+  fetch(queryUrl)
     .then(response => {
-      if (!response.ok) { //Remember, when using fetch() we have to check to see if the ok property in the response is true or false.  
-        return alert('Error: ' + response.statusText); //This is the part that will check for any HTTP status code the signifies an error.
-      } //If there's an error, we just alert the user that there's something wrong. If everything's okay, we still have to use the .json() method to parse our response into readable JSON format.
-      return response.json
+      if (!response.ok) {
+        return alert('Error: ' + response.statusText);
+      }
+      return response.json();
     })
     .then(animalData => {
       console.log(animalData);
-      printResults(animalData); 
-    }); //When that's all done, we send our array of animal data to the printResults() function, where it generates cards for each animal and prints them to the page!
-}; 
+      printResults(animalData);
+    });
+};
 
 const handleGetAnimalsSubmit = event => {
   event.preventDefault();
